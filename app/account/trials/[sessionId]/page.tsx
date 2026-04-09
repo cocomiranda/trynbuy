@@ -6,6 +6,7 @@ import {
   formatAccountTimestamp,
   getAccountOrders,
 } from "@/lib/account-orders";
+import { getSupabaseConfig } from "@/lib/supabase/config";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 
 type TrialDetailPageProps = {
@@ -18,6 +19,12 @@ export default async function TrialDetailPage({
   params,
 }: TrialDetailPageProps) {
   const { sessionId } = await params;
+  const { isConfigured } = getSupabaseConfig();
+
+  if (!isConfigured) {
+    redirect("/login");
+  }
+
   const supabase = await getSupabaseServerClient();
   const {
     data: { user },

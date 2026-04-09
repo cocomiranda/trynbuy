@@ -8,13 +8,16 @@ import {
   formatAccountTimestamp,
   getAccountOrders,
 } from "@/lib/account-orders";
+import { getSupabaseConfig } from "@/lib/supabase/config";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 
 export default async function AccountPage() {
-  const supabase = await getSupabaseServerClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { isConfigured } = getSupabaseConfig();
+  const user = isConfigured
+    ? (
+        await (await getSupabaseServerClient()).auth.getUser()
+      ).data.user
+    : null;
 
   let purchases: AccountOrder[] = [];
 
@@ -45,6 +48,11 @@ export default async function AccountPage() {
                 <p className="mt-4 max-w-xl text-sm leading-7 text-stone-600 sm:text-base sm:leading-8">
                   Sign in to view your trials, returns, and purchase decisions.
                 </p>
+                {!isConfigured ? (
+                  <p className="mt-4 text-sm text-stone-600">
+                    Auth is not configured in this environment yet.
+                  </p>
+                ) : null}
                 <Link
                   href="/login"
                   className="mt-8 inline-flex rounded-full bg-stone-900 px-5 py-3 font-medium text-white transition hover:bg-stone-700"

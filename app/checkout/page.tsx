@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { SiteFooter } from "@/app/components/site-footer";
 import { SiteNav } from "@/app/components/site-nav";
 import { getShoeBySlug, getTrialPrice, shoeCatalog } from "@/lib/shoes";
+import { getSupabaseConfig } from "@/lib/supabase/config";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 
 type CheckoutPageProps = {
@@ -17,6 +18,10 @@ type CheckoutPageProps = {
 export default async function CheckoutPage({
   searchParams,
 }: CheckoutPageProps) {
+  if (!getSupabaseConfig().isConfigured) {
+    redirect("/login");
+  }
+
   const supabase = await getSupabaseServerClient();
   const {
     data: { user },
