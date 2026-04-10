@@ -22,6 +22,7 @@ export default async function CheckoutSuccessPage({
   const days = Number(resolvedSearchParams?.days);
   const selectedDays = days === 3 || days === 5 ? days : 5;
   const isTrial = mode === "trial";
+  const isUpgrade = mode === "upgrade";
 
   return (
     <main className="min-h-screen bg-[#f4efe6] px-4 py-5 pb-28 text-stone-900 sm:px-6 sm:py-8 lg:px-10 lg:pb-8">
@@ -29,16 +30,28 @@ export default async function CheckoutSuccessPage({
         <SiteNav current="account" />
         <section className="rounded-[2rem] border border-stone-900/10 bg-white p-6 shadow-[0_18px_60px_-30px_rgba(41,37,36,0.2)] sm:rounded-[2.5rem] sm:p-8">
           <p className="text-sm uppercase tracking-[0.3em] text-stone-500">
-            {isTrial ? "Trial reserved" : "Payment received"}
+            {isTrial
+              ? "Trial reserved"
+              : isUpgrade
+                ? "Purchase completed"
+                : "Payment received"}
           </p>
           <h1 className="mt-4 font-[family-name:var(--font-heading)] text-4xl tracking-tight sm:text-5xl">
-            {isTrial ? "Your trial is confirmed" : "Your order is confirmed"}
+            {isTrial
+              ? "Your trial is confirmed"
+              : isUpgrade
+                ? "You kept the pair"
+                : "Your order is confirmed"}
           </h1>
           <p className="mt-4 max-w-2xl text-sm leading-7 text-stone-600 sm:text-base sm:leading-8">
             {isTrial
               ? shoe
                 ? `Your ${selectedDays}-day ${shoe.name} trial was booked in Stripe test mode.`
                 : `Your ${selectedDays}-day trial was booked in Stripe test mode.`
+              : isUpgrade
+                ? shoe
+                  ? `Your remaining balance for ${shoe.name} was paid in Stripe test mode.`
+                  : "Your remaining balance was paid in Stripe test mode."
               : shoe
                 ? `Your ${shoe.name} purchase went through in Stripe test mode.`
                 : "Your purchase went through in Stripe test mode."}

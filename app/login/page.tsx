@@ -52,7 +52,7 @@ export default function LoginPage() {
         }
 
         if (data.session) {
-          window.location.href = "/";
+          window.location.href = "/account";
           return;
         }
 
@@ -72,7 +72,7 @@ export default function LoginPage() {
         return;
       }
 
-      window.location.href = "/";
+      window.location.href = "/account";
     } catch {
       setFeedbackTone("error");
       setFeedback("Something went wrong. Please try again.");

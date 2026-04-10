@@ -7,7 +7,9 @@ export type AccountOrder = {
   dueDate?: string;
   dueLabel?: string;
   id: string;
+  isActiveTrial?: boolean;
   model?: string;
+  shoeSlug?: string;
   size: string;
   status: string;
   type: "Purchase" | "Trial";
@@ -70,7 +72,9 @@ export async function getAccountOrders(email: string) {
       return (
         session.mode === "payment" &&
         session.payment_status === "paid" &&
-        (purchaseMode === "buy_now" || purchaseMode === "trial") &&
+        (purchaseMode === "buy_now" ||
+          purchaseMode === "trial" ||
+          purchaseMode === "trial_upgrade") &&
         sessionEmail.toLowerCase() === email.toLowerCase()
       );
     })
@@ -89,7 +93,10 @@ export async function getAccountOrders(email: string) {
         dueDate: trialDeadline?.dueDate,
         dueLabel: trialDeadline?.label,
         id: session.id,
+        isActiveTrial:
+          purchaseType === "Trial" && trialDeadline?.label !== "Return window ended",
         model: shoe ? `${shoe.brand} ${shoe.name}` : session.metadata?.shoe,
+        shoeSlug: session.metadata?.shoe,
         size: session.metadata?.size || "Not provided",
         status: session.payment_status,
         type: purchaseType,
@@ -97,4 +104,3 @@ export async function getAccountOrders(email: string) {
     })
     .sort((left, right) => right.created - left.created);
 }
-

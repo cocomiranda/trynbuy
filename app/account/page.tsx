@@ -3,11 +3,13 @@ import { SignOutButton } from "@/app/components/sign-out-button";
 import { SiteFooter } from "@/app/components/site-footer";
 import { SiteNav } from "@/app/components/site-nav";
 import {
-  type AccountOrder,
-  formatAccountDate,
-  formatAccountTimestamp,
-  getAccountOrders,
-} from "@/lib/account-orders";
+  formatOrderDate,
+  getOrderTag,
+  getTrialDueLabel,
+  getUserOrders,
+  type OrderRow,
+} from "@/lib/orders";
+import { getShoeBySlug } from "@/lib/shoes";
 import { getSupabaseConfig } from "@/lib/supabase/config";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 
@@ -19,11 +21,12 @@ export default async function AccountPage() {
       ).data.user
     : null;
 
-  let purchases: AccountOrder[] = [];
+  let purchases: OrderRow[] = [];
 
-  if (user?.email) {
+  if (user?.id) {
     try {
-      purchases = await getAccountOrders(user.email);
+      const { data } = await getUserOrders(user.id);
+      purchases = data ?? [];
     } catch {
       purchases = [];
     }
@@ -90,7 +93,7 @@ export default async function AccountPage() {
                         Member since
                       </p>
                       <p className="mt-2 text-lg font-medium text-stone-950">
-                        {formatAccountDate(user.created_at)}
+                        {formatOrderDate(user.created_at)}
                       </p>
                     </div>
                     <div className="rounded-[1.25rem] bg-white p-4">
@@ -131,36 +134,82 @@ export default async function AccountPage() {
               </div>
             ) : (
               <div className="mt-6 space-y-4">
-                {purchases.map((purchase) => (
-                  <div key={purchase.id} className="rounded-[1.5rem] bg-white/70 p-5">
-                    <div className="flex items-start justify-between gap-4">
-                      <div>
-                        <div className="inline-flex rounded-full bg-[#dff0ff] px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-[#1769e8]">
-                          {purchase.type}
-                        </div>
-                        <h2 className="mt-3 text-lg font-semibold">
-                          {purchase.model || "Order"}
-                        </h2>
-                        {purchase.type === "Trial" ? (
+                {purchases.map((purchase) => {
+                  const shoe = purchase.shoe_slug
+                    ? getShoeBySlug(purchase.shoe_slug)
+                    : undefined;
+                  const isTrial = purchase.mode === "trial";
+                  const dueLabel = getTrialDueLabel(purchase.trial_ends_at);
+                  const upgradeAmount =
+                    isTrial &&
+                    purchase.trial_fee_paid &&
+                    shoe &&
+                    purchase.status === "trial_active"
+                      ? Math.max(shoe.keepPrice - purchase.trial_fee_paid, 0)
+                      : null;
+
+                  return (
+                    <div key={purchase.id} className="rounded-[1.5rem] bg-white/70 p-5">
+                      <div className="flex items-start justify-between gap-6">
+                      <div className="min-w-0 flex-1">
+                        <Link
+                          href={`/account/orders/${purchase.id}`}
+                          className="inline-flex text-lg font-semibold text-stone-950 underline-offset-4 hover:underline"
+                        >
+                          {purchase.shoe_name || "Order"}
+                        </Link>
+                        {isTrial ? (
+                          <div className="mt-3 min-h-[24px] space-y-1">
+                            {purchase.status === "trial_pending_inspection" ||
+                            purchase.status === "trial_return_requested" ? (
+                              <p className="text-sm leading-6 font-medium text-stone-600">
+                                Pending inspection
+                              </p>
+                            ) : (
+                              <p className="text-sm leading-6 text-stone-500">
+                                Due date {formatOrderDate(purchase.trial_ends_at)}{" "}
+                                <span className="font-medium text-red-600">
+                                  ({dueLabel ?? "ended"})
+                                </span>
+                              </p>
+                            )}
+                            <p className="text-sm text-stone-500">
+                              {formatOrderDate(purchase.created_at)}
+                            </p>
+                          </div>
+                        ) : (
+                          <div className="mt-3 min-h-[24px]">
+                            <p className="text-sm text-stone-500">
+                              {formatOrderDate(purchase.created_at)}
+                            </p>
+                          </div>
+                        )}
+
+                        {upgradeAmount !== null ? (
                           <Link
-                            href={`/account/trials/${purchase.id}`}
-                            className="mt-3 inline-flex text-sm font-medium text-red-600 underline-offset-4 hover:underline"
+                            href={`/checkout?shoe=${purchase.shoe_slug}&mode=upgrade&size=${encodeURIComponent(
+                              purchase.size,
+                            )}&trialSession=${purchase.id}`}
+                            className="mt-4 inline-flex rounded-full bg-stone-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-stone-700"
                           >
-                            {purchase.dueLabel} · Due date {purchase.dueDate}
+                            Buy now for ${upgradeAmount}
                           </Link>
                         ) : null}
                       </div>
-                      <div className="text-right">
-                        <p className="text-lg font-semibold text-stone-950">
-                          {purchase.amount ? `$${purchase.amount}` : "Paid"}
-                        </p>
-                        <p className="mt-1 text-sm text-stone-500">
-                          {formatAccountTimestamp(purchase.created)}
+                      <div className="min-w-[120px] text-right">
+                        <div className="inline-flex rounded-full bg-[#dff0ff] px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-[#1769e8]">
+                          {getOrderTag(purchase)}
+                        </div>
+                        <p className="mt-3 text-lg font-semibold text-stone-950">
+                          {purchase.mode === "trial"
+                            ? `$${purchase.trial_fee_paid}`
+                            : `$${purchase.buy_price}`}
                         </p>
                       </div>
                     </div>
                   </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </article>
