@@ -2,7 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { SiteFooter } from "@/app/components/site-footer";
 import { SiteNav } from "@/app/components/site-nav";
-import { getAccountOrders } from "@/lib/account-orders";
+import { getUserOrderById } from "@/lib/orders";
 import { getShoeBySlug, getTrialPrice, shoeCatalog } from "@/lib/shoes";
 import { getSupabaseConfig } from "@/lib/supabase/config";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
@@ -52,22 +52,22 @@ export default async function CheckoutPage({
       ? "Example: if your pair arrives on Monday, return it by Thursday 00:00."
       : "Example: if your pair arrives on Monday, return it by Saturday 00:00.";
   const userEmail = user.email;
-  const orders = await getAccountOrders(userEmail);
   const selectedTrial =
     isUpgrade && trialSessionId
-      ? orders.find(
-          (order) =>
-            order.id === trialSessionId &&
-            order.type === "Trial" &&
-            order.isActiveTrial,
-        )
+      ? (await getUserOrderById(trialSessionId, user.id)).data
       : null;
 
-  if (isUpgrade && (!selectedTrial || selectedTrial.shoeSlug !== shoe.slug)) {
+  if (
+    isUpgrade &&
+    (!selectedTrial ||
+      selectedTrial.mode !== "trial" ||
+      selectedTrial.shoe_slug !== shoe.slug ||
+      selectedTrial.status !== "trial_active")
+  ) {
     redirect("/account");
   }
 
-  const trialPaid = selectedTrial?.amount ?? 0;
+  const trialPaid = selectedTrial?.trial_fee_paid ?? 0;
   const upgradeAmount = Math.max(shoe.keepPrice - trialPaid, 0);
   const checkoutMode = isUpgrade ? "upgrade" : isBuyNow ? "buy" : "trial";
   const effectiveSize = isUpgrade ? (selectedTrial?.size ?? selectedSize) : selectedSize;
@@ -209,42 +209,6 @@ export default async function CheckoutPage({
               ) : null}
             </div>
 
-            {!isUpgrade ? (
-              <div className="mt-8 rounded-[2rem] bg-stone-950 p-6 text-stone-50">
-                <p className="text-sm uppercase tracking-[0.3em] text-stone-400">
-                  Payment plan
-                </p>
-                {isBuyNow ? (
-                <div className="mt-5 grid gap-3 sm:grid-cols-2">
-                  <div className="rounded-[1.25rem] bg-white/5 p-4">
-                    <p className="text-sm text-stone-400">Pay now</p>
-                    <p className="mt-2 font-semibold">${shoe.keepPrice} total</p>
-                  </div>
-                  <div className="rounded-[1.25rem] bg-white/5 p-4">
-                    <p className="text-sm text-stone-400">Shipping</p>
-                    <p className="mt-2 font-semibold">Free both ways</p>
-                  </div>
-                </div>
-                ) : (
-                  <div className="mt-5 grid gap-3 sm:grid-cols-3">
-                    <div className="rounded-[1.25rem] bg-white/5 p-4">
-                      <p className="text-sm text-stone-400">1. Trial cost</p>
-                      <p className="mt-2 font-semibold">${shoe.trialDailyFee}/day</p>
-                    </div>
-                    <div className="rounded-[1.25rem] bg-white/5 p-4">
-                      <p className="text-sm text-stone-400">2. Pay today</p>
-                      <p className="mt-2 font-semibold">${trialFee}</p>
-                    </div>
-                    <div className="rounded-[1.25rem] bg-white/5 p-4">
-                      <p className="text-sm text-stone-400">3. Guarantee hold</p>
-                      <p className="mt-2 font-semibold">
-                        ${shoe.deposit} (not charged)
-                      </p>
-                    </div>
-                  </div>
-                )}
-              </div>
-            ) : null}
           </article>
 
           <aside className="rounded-[2rem] border border-stone-900/10 bg-[#efe3cc] p-5 sm:rounded-[2.5rem] sm:p-8">
@@ -366,9 +330,7 @@ export default async function CheckoutPage({
                 ? `You already paid $${trialPaid}. Stripe will only charge the remaining $${upgradeAmount} now.`
                 : isBuyNow
                 ? "You will be redirected to Stripe test checkout to complete this purchase."
-                : "You pay $" +
-                  trialFee +
-                  " today. Guarantee hold automation is coming next."}
+                : "You pay $" + trialFee + " today. The guarantee hold is not charged here."}
             </p>
             {isBuyNow || isUpgrade ? (
               <p className="mt-2 text-sm leading-7 text-stone-600">
@@ -382,32 +344,6 @@ export default async function CheckoutPage({
             )}
           </aside>
         </form>
-      </div>
-
-      <div className="fixed inset-x-0 bottom-0 z-20 border-t border-stone-900/10 bg-[#f4efe6]/95 px-4 py-3 backdrop-blur sm:hidden">
-        <div className="mx-auto flex max-w-6xl items-center gap-3">
-          <div className="min-w-0 flex-1">
-            <p className="text-xs uppercase tracking-[0.2em] text-stone-500">
-              {isUpgrade ? "Due today" : isBuyNow ? "Due today" : "Starts at"}
-            </p>
-            <p className="truncate font-semibold text-stone-900">
-              {isUpgrade
-                ? `$${upgradeAmount} remaining`
-                : isBuyNow
-                ? `$${shoe.keepPrice} total`
-                : `$${shoe.trialDailyFee}/day, $${shoe.deposit} hold`}
-            </p>
-          </div>
-          <button
-            className="inline-flex shrink-0 items-center justify-center rounded-full bg-stone-900 px-5 py-3 text-sm font-medium text-white"
-            formAction="/api/stripe/checkout"
-            form="checkout-form"
-            formMethod="POST"
-            type="submit"
-          >
-            {isUpgrade ? "Buy now" : "Checkout"}
-          </button>
-        </div>
       </div>
 
       <SiteFooter />

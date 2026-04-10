@@ -35,6 +35,10 @@ export default function LoginPage() {
       const supabase = getSupabaseBrowserClient();
 
       if (isSignup) {
+        const emailRedirectTo =
+          typeof window !== "undefined"
+            ? `${window.location.origin}/auth/callback?next=/account`
+            : undefined;
         const { data, error } = await supabase.auth.signUp({
           email,
           password,
@@ -42,6 +46,7 @@ export default function LoginPage() {
             data: {
               full_name: name,
             },
+            emailRedirectTo,
           },
         });
 

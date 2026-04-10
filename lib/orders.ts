@@ -417,6 +417,41 @@ export function formatOrderDate(value?: string | null) {
   }).format(new Date(value));
 }
 
+function getMetadataDeliveryDate(metadata?: Record<string, unknown>) {
+  const deliveryDate = metadata?.deliveryDate;
+
+  if (typeof deliveryDate !== "string" || !deliveryDate) {
+    return null;
+  }
+
+  const date = new Date(`${deliveryDate}T00:00:00Z`);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+export function getResolvedTrialEndsAt(
+  order: Pick<OrderRow, "created_at" | "metadata" | "trial_days" | "trial_ends_at">,
+) {
+  if (order.trial_ends_at) {
+    return order.trial_ends_at;
+  }
+
+  if (order.trial_days !== 3 && order.trial_days !== 5) {
+    return null;
+  }
+
+  const startDate =
+    getMetadataDeliveryDate(order.metadata) ??
+    (order.created_at ? new Date(order.created_at) : null);
+
+  if (!startDate || Number.isNaN(startDate.getTime())) {
+    return null;
+  }
+
+  return new Date(
+    startDate.getTime() + order.trial_days * 24 * 60 * 60 * 1000,
+  ).toISOString();
+}
+
 export function getTrialDueLabel(trialEndsAt?: string | null) {
   if (!trialEndsAt) {
     return null;
@@ -436,22 +471,51 @@ export function getTrialDueLabel(trialEndsAt?: string | null) {
   return `in ${remainingDays}d ${remainingHours}h`;
 }
 
-export function getOrderTag(order: OrderRow) {
+export function getOrderTypeTag(order: OrderRow) {
   if (
-    order.status === "trial_return_requested" ||
-    order.status === "trial_pending_inspection"
-  ) {
-    return "Returned";
-  }
-
-  if (
+    order.mode === "buy_now" ||
+    order.status === "trial_converted_to_purchase" ||
     order.status === "purchase_paid" ||
     order.status === "purchase_to_be_delivered" ||
-    order.status === "purchase_delivered" ||
-    order.status === "trial_converted_to_purchase"
+    order.status === "purchase_delivered"
   ) {
     return "Purchase";
   }
 
   return "Trial";
+}
+
+export function getOrderStateTag(order: OrderRow) {
+  if (
+    order.status === "trial_return_requested" ||
+    order.status === "trial_pending_inspection"
+  ) {
+    return "Pending inspection";
+  }
+
+  if (order.status === "trial_return_completed") {
+    return "Returned";
+  }
+
+  if (
+    order.status === "purchase_to_be_delivered" ||
+    order.delivery_status === "pending" ||
+    order.delivery_status === "preparing" ||
+    order.delivery_status === "shipped"
+  ) {
+    return "To be delivered";
+  }
+
+  if (
+    order.status === "purchase_cancelled" ||
+    order.delivery_status === "returned"
+  ) {
+    return "Returned";
+  }
+
+  if (order.status === "checkout_pending") {
+    return "Pending payment";
+  }
+
+  return "Received";
 }

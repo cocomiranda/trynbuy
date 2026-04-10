@@ -60,13 +60,21 @@ export async function POST(request: Request) {
         if (mode === "trial" && order.status === "checkout_pending") {
           const selectedDays =
             order.trial_days === 3 || order.trial_days === 5 ? order.trial_days : 5;
-          const trialStartedAt = new Date(session.created * 1000).toISOString();
+          const requestedDeliveryDate =
+            typeof order.metadata?.deliveryDate === "string"
+              ? new Date(`${order.metadata.deliveryDate}T00:00:00Z`)
+              : null;
+          const trialStartDate =
+            requestedDeliveryDate && !Number.isNaN(requestedDeliveryDate.getTime())
+              ? requestedDeliveryDate
+              : new Date(session.created * 1000);
+          const trialStartedAt = trialStartDate.toISOString();
           const trialEndsAt = new Date(
-            session.created * 1000 + selectedDays * 24 * 60 * 60 * 1000,
+            trialStartDate.getTime() + selectedDays * 24 * 60 * 60 * 1000,
           ).toISOString();
 
           await finalizePaidOrderAdmin({
-            deliveryStatus: "pending",
+            deliveryStatus: "delivered",
             inspectionStatus: "not_started",
             orderId,
             paymentIntentId,
@@ -123,7 +131,7 @@ export async function POST(request: Request) {
           (order.status === "trial_active" || order.status === "trial_pending_inspection")
         ) {
           await finalizePaidOrderAdmin({
-            deliveryStatus: "pending",
+            deliveryStatus: "delivered",
             inspectionStatus: "not_required",
             orderId,
             paymentIntentId,

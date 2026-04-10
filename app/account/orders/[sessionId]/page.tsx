@@ -6,6 +6,9 @@ import { TrialActions } from "@/app/account/orders/[sessionId]/trial-actions";
 import { TrialPhotoUploader } from "@/app/account/orders/[sessionId]/trial-photo-uploader";
 import {
   formatOrderDate,
+  getOrderStateTag,
+  getOrderTypeTag,
+  getResolvedTrialEndsAt,
   getTrialDueLabel,
   getUserOrderById,
 } from "@/lib/orders";
@@ -13,6 +16,8 @@ import { getShoeBySlug } from "@/lib/shoes";
 import { getSupabaseConfig } from "@/lib/supabase/config";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import { getTrialReturnRequest, listTrialPhotos } from "@/lib/trial-photos";
+
+export const dynamic = "force-dynamic";
 
 type OrderDetailPageProps = {
   params: Promise<{
@@ -45,11 +50,19 @@ export default async function OrderDetailPage({
     notFound();
   }
 
-  const isTrial = order.mode === "trial";
+  const typeTag = getOrderTypeTag(order);
+  const stateTag = getOrderStateTag(order);
+  const isTrial = typeTag === "Trial";
   const shoe = order.shoe_slug ? getShoeBySlug(order.shoe_slug) : undefined;
+  const trialAmountPaid =
+    isTrial && shoe
+      ? order.trial_fee_paid > 0
+        ? order.trial_fee_paid
+        : shoe.trialDailyFee * (order.trial_days ?? 5)
+      : order.trial_fee_paid;
   const upgradeAmount =
-    isTrial && order.status === "trial_active" && order.trial_fee_paid && shoe
-      ? Math.max(shoe.keepPrice - order.trial_fee_paid, 0)
+    isTrial && order.status === "trial_active" && shoe
+      ? Math.max(shoe.keepPrice - trialAmountPaid, 0)
       : null;
   const beforePhotos =
     isTrial ? await listTrialPhotos({ orderId: sessionId, stage: "before", userId: user.id }) : [];
@@ -57,7 +70,8 @@ export default async function OrderDetailPage({
     isTrial ? await listTrialPhotos({ orderId: sessionId, stage: "return", userId: user.id }) : [];
   const returnRequest =
     isTrial ? await getTrialReturnRequest({ orderId: sessionId, userId: user.id }) : null;
-  const dueLabel = getTrialDueLabel(order.trial_ends_at) ?? "Active";
+  const resolvedTrialEndsAt = getResolvedTrialEndsAt(order);
+  const dueLabel = getTrialDueLabel(resolvedTrialEndsAt) ?? "Active";
 
   return (
     <main className="min-h-screen bg-[#f4efe6] px-4 py-5 pb-28 text-stone-900 sm:px-6 sm:py-8 lg:px-10 lg:pb-8">
@@ -74,14 +88,19 @@ export default async function OrderDetailPage({
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div>
               <p className="text-sm uppercase tracking-[0.3em] text-stone-500">
-                {isTrial ? "Trial details" : "Purchase details"}
+                {typeTag === "Trial" ? "Trial details" : "Purchase details"}
               </p>
               <h1 className="mt-4 font-[family-name:var(--font-heading)] text-4xl tracking-tight sm:text-5xl">
                 {order.shoe_name || "Your order"}
               </h1>
             </div>
-            <div className="inline-flex rounded-full bg-[#dff0ff] px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-[#1769e8]">
-              {isTrial ? "Trial" : "Purchase"}
+            <div className="flex flex-wrap items-center justify-end gap-2">
+              <div className="inline-flex rounded-full bg-[#dff0ff] px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-[#1769e8]">
+                {typeTag}
+              </div>
+              <div className="inline-flex rounded-full bg-stone-100 px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-stone-600">
+                {stateTag}
+              </div>
             </div>
           </div>
 
@@ -91,7 +110,7 @@ export default async function OrderDetailPage({
                 {isTrial ? "Trial fee paid" : "Amount paid"}
               </p>
               <p className="mt-2 text-2xl font-semibold text-stone-950">
-                {isTrial ? `$${order.trial_fee_paid}` : `$${order.buy_price}`}
+                {isTrial ? `$${trialAmountPaid}` : `$${order.buy_price}`}
               </p>
             </div>
             <div className="rounded-[1.5rem] bg-stone-50 p-4">
@@ -104,16 +123,12 @@ export default async function OrderDetailPage({
             </div>
             <div className="rounded-[1.5rem] bg-stone-50 p-4">
               <p className="text-sm uppercase tracking-[0.2em] text-stone-400">
-                {isTrial ? "Current status" : "Order type"}
+                Current status
               </p>
               <p className="mt-2 text-lg font-medium text-stone-950">
-                {isTrial
-                  ? returnRequest || order.status === "trial_pending_inspection"
-                    ? "Pending inspection"
-                    : dueLabel
-                  : order.status === "purchase_to_be_delivered"
-                    ? "To be delivered"
-                    : "Completed purchase"}
+                {isTrial && !returnRequest && order.status === "trial_active"
+                  ? dueLabel
+                  : stateTag}
               </p>
             </div>
           </div>
@@ -121,9 +136,11 @@ export default async function OrderDetailPage({
           {isTrial ? (
             <>
               <TrialActions
-                dueDate={formatOrderDate(order.trial_ends_at)}
+                dueDate={formatOrderDate(resolvedTrialEndsAt)}
                 dueLabel={dueLabel}
-                initialReturnRequested={Boolean(returnRequest)}
+                initialReturnRequested={Boolean(
+                  returnRequest || order.status === "trial_pending_inspection",
+                )}
                 returnPhotosCount={returnPhotos.length}
                 sessionId={sessionId}
                 upgradeAmount={upgradeAmount}

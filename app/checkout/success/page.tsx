@@ -1,12 +1,18 @@
 import Link from "next/link";
 import { SiteFooter } from "@/app/components/site-footer";
 import { SiteNav } from "@/app/components/site-nav";
+import { createOrderEvent, finalizePaidOrder, getUserOrderById } from "@/lib/orders";
 import { getShoeBySlug } from "@/lib/shoes";
+import { getStripeClient } from "@/lib/stripe";
+import { getSupabaseConfig } from "@/lib/supabase/config";
+import { getSupabaseServerClient } from "@/lib/supabase/server";
 
 type SuccessPageProps = {
   searchParams?: Promise<{
     days?: string;
     mode?: string;
+    orderId?: string;
+    session_id?: string;
     shoe?: string;
   }>;
 };
@@ -20,9 +26,129 @@ export default async function CheckoutSuccessPage({
     : undefined;
   const mode = resolvedSearchParams?.mode;
   const days = Number(resolvedSearchParams?.days);
+  const orderId = resolvedSearchParams?.orderId;
+  const sessionId = resolvedSearchParams?.session_id;
   const selectedDays = days === 3 || days === 5 ? days : 5;
   const isTrial = mode === "trial";
   const isUpgrade = mode === "upgrade";
+
+  if (getSupabaseConfig().isConfigured && orderId && sessionId) {
+    try {
+      const supabase = await getSupabaseServerClient();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (user?.id) {
+        const { data: order } = await getUserOrderById(orderId, user.id);
+
+        if (order?.status === "checkout_pending") {
+          const stripe = getStripeClient();
+          const session = await stripe.checkout.sessions.retrieve(sessionId);
+
+          if (session.payment_status === "paid") {
+            const paymentIntentId =
+              typeof session.payment_intent === "string"
+                ? session.payment_intent
+                : session.payment_intent?.id;
+            const email =
+              session.customer_details?.email ?? session.customer_email ?? null;
+
+            if (mode === "trial") {
+              const trialStartDate =
+                typeof order.metadata?.deliveryDate === "string"
+                  ? new Date(`${order.metadata.deliveryDate}T00:00:00Z`)
+                  : new Date(session.created * 1000);
+              const safeTrialStartDate = Number.isNaN(trialStartDate.getTime())
+                ? new Date(session.created * 1000)
+                : trialStartDate;
+              const trialStartedAt = safeTrialStartDate.toISOString();
+              const trialEndsAt = new Date(
+                safeTrialStartDate.getTime() +
+                  (order.trial_days ?? selectedDays) * 24 * 60 * 60 * 1000,
+              ).toISOString();
+              const trialFeePaid = (session.amount_total ?? 0) / 100;
+
+              await finalizePaidOrder({
+                deliveryStatus: "delivered",
+                inspectionStatus: "not_started",
+                orderId,
+                paymentIntentId,
+                remainingBuyAmount: Math.max(order.buy_price - trialFeePaid, 0),
+                status: "trial_active",
+                stripeCheckoutSessionId: session.id,
+                stripeCustomerEmail: email,
+                trialEndsAt,
+                trialFeePaid,
+                trialStartedAt,
+                userId: user.id,
+              });
+
+              await createOrderEvent({
+                orderId,
+                payload: {
+                  checkoutSessionId: session.id,
+                  source: "success_page_fallback",
+                },
+                type: "trial_activated",
+                userId: user.id,
+              });
+            } else if (mode === "upgrade") {
+              await finalizePaidOrder({
+                deliveryStatus: "delivered",
+                inspectionStatus: "not_required",
+                orderId,
+                paymentIntentId,
+                remainingBuyAmount: 0,
+                status: "trial_converted_to_purchase",
+                stripeCheckoutSessionId: session.id,
+                stripeCustomerEmail: email,
+                trialEndsAt: order.trial_ends_at,
+                trialFeePaid: order.trial_fee_paid,
+                trialStartedAt: order.trial_started_at,
+                userId: user.id,
+              });
+
+              await createOrderEvent({
+                orderId,
+                payload: {
+                  checkoutSessionId: session.id,
+                  source: "success_page_fallback",
+                },
+                type: "trial_upgraded",
+                userId: user.id,
+              });
+            } else {
+              await finalizePaidOrder({
+                deliveryStatus: "pending",
+                inspectionStatus: "not_required",
+                orderId,
+                paymentIntentId,
+                remainingBuyAmount: 0,
+                status: "purchase_to_be_delivered",
+                stripeCheckoutSessionId: session.id,
+                stripeCustomerEmail: email,
+                userId: user.id,
+              });
+
+              await createOrderEvent({
+                orderId,
+                payload: {
+                  checkoutSessionId: session.id,
+                  source: "success_page_fallback",
+                },
+                type: "purchase_paid",
+                userId: user.id,
+              });
+            }
+          }
+        }
+      }
+    } catch {
+      // If the webhook already handled the update or retrieval fails, keep the success
+      // page usable and let the webhook remain the primary source of truth.
+    }
+  }
 
   return (
     <main className="min-h-screen bg-[#f4efe6] px-4 py-5 pb-28 text-stone-900 sm:px-6 sm:py-8 lg:px-10 lg:pb-8">

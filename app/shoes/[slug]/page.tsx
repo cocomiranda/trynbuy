@@ -148,23 +148,6 @@ export default async function ShoePage({ params }: ShoePageProps) {
         </section>
       </div>
 
-      <div className="fixed inset-x-0 bottom-0 z-20 border-t border-white/10 bg-stone-950/90 px-4 py-3 backdrop-blur sm:hidden">
-        <div className="mx-auto flex max-w-6xl items-center gap-3">
-          <div className="min-w-0 flex-1">
-            <p className="text-xs uppercase tracking-[0.2em] text-stone-400">
-              Keep price
-            </p>
-            <p className="truncate font-semibold text-white">${shoe.keepPrice} if you keep them</p>
-          </div>
-          <Link
-            href={`/checkout?shoe=${shoe.slug}`}
-            className="inline-flex shrink-0 items-center justify-center rounded-full bg-white px-5 py-3 text-sm font-medium text-stone-950"
-          >
-            Reserve
-          </Link>
-        </div>
-      </div>
-
       <SiteFooter />
     </main>
   );

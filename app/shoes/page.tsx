@@ -127,7 +127,7 @@ export default function ShoesPage() {
                           : "pointer-events-none bg-[#1769e8] text-white opacity-35"
                       }`}
                     >
-                      Buy trial
+                      Start trial
                     </Link>
                     <Link
                       href={
@@ -155,23 +155,6 @@ export default function ShoesPage() {
             </article>
           ))}
         </section>
-      </div>
-
-      <div className="fixed inset-x-0 bottom-0 z-20 border-t border-stone-200 bg-white/95 px-4 py-3 backdrop-blur sm:hidden">
-        <div className="mx-auto flex max-w-7xl items-center gap-3">
-          <Link
-            href="/"
-            className="inline-flex flex-1 items-center justify-center rounded-full border border-stone-300 bg-white px-4 py-3 text-sm font-medium text-stone-700"
-          >
-            Home
-          </Link>
-          <Link
-            href="/checkout"
-            className="inline-flex flex-1 items-center justify-center rounded-full bg-[#1769e8] px-4 py-3 text-sm font-medium text-white"
-          >
-            Start Trial
-          </Link>
-        </div>
       </div>
 
       <SiteFooter />

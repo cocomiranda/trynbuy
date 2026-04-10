@@ -159,6 +159,7 @@ export async function POST(request: Request) {
   const session = await stripe.checkout.sessions.create({
     cancel_url: cancelUrl.toString(),
     customer_email: email || undefined,
+    customer_creation: "always",
     line_items: priceId
       ? [
           {
@@ -194,6 +195,16 @@ export async function POST(request: Request) {
       trialSession: trialSessionId,
     },
     mode: "payment",
+    payment_intent_data: {
+      metadata: {
+        mode: isUpgrade ? "trial_upgrade" : isBuyNow ? "buy_now" : "trial",
+        orderId: orderId ?? trialSessionId,
+        shoe: shoe.slug,
+        size,
+        trialSession: trialSessionId,
+      },
+      receipt_email: email || undefined,
+    },
     success_url: successUrl.toString(),
   });
 

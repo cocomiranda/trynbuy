@@ -4,7 +4,9 @@ import { SiteFooter } from "@/app/components/site-footer";
 import { SiteNav } from "@/app/components/site-nav";
 import {
   formatOrderDate,
-  getOrderTag,
+  getOrderStateTag,
+  getOrderTypeTag,
+  getResolvedTrialEndsAt,
   getTrialDueLabel,
   getUserOrders,
   type OrderRow,
@@ -12,6 +14,8 @@ import {
 import { getShoeBySlug } from "@/lib/shoes";
 import { getSupabaseConfig } from "@/lib/supabase/config";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
+
+export const dynamic = "force-dynamic";
 
 export default async function AccountPage() {
   const { isConfigured } = getSupabaseConfig();
@@ -135,17 +139,25 @@ export default async function AccountPage() {
             ) : (
               <div className="mt-6 space-y-4">
                 {purchases.map((purchase) => {
+                  const typeTag = getOrderTypeTag(purchase);
+                  const stateTag = getOrderStateTag(purchase);
+                  const resolvedTrialEndsAt = getResolvedTrialEndsAt(purchase);
+                  const isTrial = typeTag === "Trial";
+                  const dueLabel = getTrialDueLabel(resolvedTrialEndsAt);
                   const shoe = purchase.shoe_slug
                     ? getShoeBySlug(purchase.shoe_slug)
                     : undefined;
-                  const isTrial = purchase.mode === "trial";
-                  const dueLabel = getTrialDueLabel(purchase.trial_ends_at);
+                  const trialAmountPaid =
+                    isTrial && shoe
+                      ? purchase.trial_fee_paid > 0
+                        ? purchase.trial_fee_paid
+                        : shoe.trialDailyFee * (purchase.trial_days ?? 5)
+                      : purchase.trial_fee_paid;
                   const upgradeAmount =
                     isTrial &&
-                    purchase.trial_fee_paid &&
                     shoe &&
                     purchase.status === "trial_active"
-                      ? Math.max(shoe.keepPrice - purchase.trial_fee_paid, 0)
+                      ? Math.max(shoe.keepPrice - trialAmountPaid, 0)
                       : null;
 
                   return (
@@ -165,9 +177,13 @@ export default async function AccountPage() {
                               <p className="text-sm leading-6 font-medium text-stone-600">
                                 Pending inspection
                               </p>
+                            ) : purchase.status === "trial_return_completed" ? (
+                              <p className="text-sm leading-6 font-medium text-stone-600">
+                                Returned
+                              </p>
                             ) : (
                               <p className="text-sm leading-6 text-stone-500">
-                                Due date {formatOrderDate(purchase.trial_ends_at)}{" "}
+                                Due date {formatOrderDate(resolvedTrialEndsAt)}{" "}
                                 <span className="font-medium text-red-600">
                                   ({dueLabel ?? "ended"})
                                 </span>
@@ -197,12 +213,17 @@ export default async function AccountPage() {
                         ) : null}
                       </div>
                       <div className="min-w-[120px] text-right">
-                        <div className="inline-flex rounded-full bg-[#dff0ff] px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-[#1769e8]">
-                          {getOrderTag(purchase)}
+                        <div className="flex flex-col items-end gap-2">
+                          <div className="inline-flex rounded-full bg-[#dff0ff] px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-[#1769e8]">
+                            {typeTag}
+                          </div>
+                          <div className="inline-flex rounded-full bg-stone-100 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-stone-600">
+                            {stateTag}
+                          </div>
                         </div>
                         <p className="mt-3 text-lg font-semibold text-stone-950">
-                          {purchase.mode === "trial"
-                            ? `$${purchase.trial_fee_paid}`
+                          {typeTag === "Trial"
+                            ? `$${trialAmountPaid}`
                             : `$${purchase.buy_price}`}
                         </p>
                       </div>
