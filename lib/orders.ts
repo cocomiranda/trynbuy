@@ -1,5 +1,6 @@
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import { getSupabaseAdminClient, type LooseQueryBuilder } from "@/lib/supabase/admin";
+import { getStripeClient } from "@/lib/stripe";
 
 export type OrderMode = "trial" | "buy_now" | "trial_upgrade";
 
@@ -342,6 +343,127 @@ export async function createOrderEventAdmin(params: {
     .single<OrderEventRow>();
 }
 
+export async function syncOrderPaymentState(order: OrderRow) {
+  if (
+    order.status !== "checkout_pending" ||
+    !order.stripe_checkout_session_id
+  ) {
+    return order;
+  }
+
+  const stripe = getStripeClient();
+  const session = await stripe.checkout.sessions.retrieve(
+    order.stripe_checkout_session_id,
+  );
+
+  if (session.payment_status !== "paid") {
+    return order;
+  }
+
+  const paymentIntentId =
+    typeof session.payment_intent === "string"
+      ? session.payment_intent
+      : session.payment_intent?.id;
+  const email = session.customer_details?.email ?? session.customer_email ?? null;
+
+  if (order.mode === "trial") {
+    const selectedDays = order.trial_days === 3 || order.trial_days === 5 ? order.trial_days : 5;
+    const requestedDeliveryDate =
+      typeof order.metadata?.deliveryDate === "string"
+        ? new Date(`${order.metadata.deliveryDate}T00:00:00Z`)
+        : null;
+    const trialStartDate =
+      requestedDeliveryDate && !Number.isNaN(requestedDeliveryDate.getTime())
+        ? requestedDeliveryDate
+        : new Date(session.created * 1000);
+    const trialStartedAt = trialStartDate.toISOString();
+    const trialFeePaid = (session.amount_total ?? 0) / 100;
+    const trialEndsAt = new Date(
+      trialStartDate.getTime() + selectedDays * 24 * 60 * 60 * 1000,
+    ).toISOString();
+
+    const { data } = await finalizePaidOrder({
+      deliveryStatus: "delivered",
+      inspectionStatus: "not_started",
+      orderId: order.id,
+      paymentIntentId,
+      remainingBuyAmount: Math.max(order.buy_price - trialFeePaid, 0),
+      status: "trial_active",
+      stripeCheckoutSessionId: session.id,
+      stripeCustomerEmail: email,
+      trialEndsAt,
+      trialFeePaid,
+      trialStartedAt,
+      userId: order.user_id,
+    });
+
+    await createOrderEvent({
+      orderId: order.id,
+      payload: {
+        checkoutSessionId: session.id,
+        source: "account_sync",
+      },
+      type: "trial_activated",
+      userId: order.user_id,
+    });
+
+    return data ?? order;
+  }
+
+  if (order.mode === "trial_upgrade") {
+    const { data } = await finalizePaidOrder({
+      deliveryStatus: "delivered",
+      inspectionStatus: "not_required",
+      orderId: order.id,
+      paymentIntentId,
+      remainingBuyAmount: 0,
+      status: "trial_converted_to_purchase",
+      stripeCheckoutSessionId: session.id,
+      stripeCustomerEmail: email,
+      trialEndsAt: order.trial_ends_at,
+      trialFeePaid: order.trial_fee_paid,
+      trialStartedAt: order.trial_started_at,
+      userId: order.user_id,
+    });
+
+    await createOrderEvent({
+      orderId: order.id,
+      payload: {
+        checkoutSessionId: session.id,
+        source: "account_sync",
+      },
+      type: "trial_upgraded",
+      userId: order.user_id,
+    });
+
+    return data ?? order;
+  }
+
+  const { data } = await finalizePaidOrder({
+    deliveryStatus: "pending",
+    inspectionStatus: "not_required",
+    orderId: order.id,
+    paymentIntentId,
+    remainingBuyAmount: 0,
+    status: "purchase_to_be_delivered",
+    stripeCheckoutSessionId: session.id,
+    stripeCustomerEmail: email,
+    userId: order.user_id,
+  });
+
+  await createOrderEvent({
+    orderId: order.id,
+    payload: {
+      checkoutSessionId: session.id,
+      source: "account_sync",
+    },
+    type: "purchase_paid",
+    userId: order.user_id,
+  });
+
+  return data ?? order;
+}
+
 export async function createOrderPhoto(params: {
   fileName: string;
   mimeType: string;
@@ -499,11 +621,16 @@ export function getOrderStateTag(order: OrderRow) {
 
   if (
     order.status === "purchase_to_be_delivered" ||
+    order.status === "purchase_paid" ||
+    order.status === "purchase_delivered" ||
     order.delivery_status === "pending" ||
     order.delivery_status === "preparing" ||
-    order.delivery_status === "shipped"
+    order.delivery_status === "shipped" ||
+    order.delivery_status === "delivered"
   ) {
-    return "To be delivered";
+    // MVP: keep purchase states simple in the UI until real carrier tracking
+    // is wired in, even though the fuller delivery workflow exists in code.
+    return "Received";
   }
 
   if (

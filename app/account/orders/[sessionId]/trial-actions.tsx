@@ -5,9 +5,11 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 type TrialActionsProps = {
+  beforePhotosCount: number;
   dueDate?: string;
   dueLabel?: string;
   initialReturnRequested?: boolean;
+  returnedDate?: string;
   returnPhotosCount: number;
   sessionId: string;
   upgradeAmount: number | null;
@@ -15,9 +17,11 @@ type TrialActionsProps = {
 };
 
 export function TrialActions({
+  beforePhotosCount,
   dueDate,
   dueLabel,
   initialReturnRequested = false,
+  returnedDate,
   returnPhotosCount,
   sessionId,
   upgradeAmount,
@@ -33,6 +37,9 @@ export function TrialActions({
   const countdown = dueLabel
     ?.replace("Due in ", "in ")
     .replace("Return window ended", "ended");
+  const hasBeforePhotos = beforePhotosCount > 0;
+  const hasReturnPhotos = returnPhotosCount > 0;
+  const canConfirmReturn = hasBeforePhotos && hasReturnPhotos;
 
   async function handleConfirm() {
     setIsSubmitting(true);
@@ -70,12 +77,18 @@ export function TrialActions({
   return (
     <>
       <div className="mt-8 flex flex-wrap items-center gap-3">
-        <div className="inline-flex max-w-full rounded-[1.5rem] border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-600">
-          <p>
-            Due date {dueDate}{" "}
-            <span className="font-semibold">({countdown})</span>
-          </p>
-        </div>
+        {submitted ? (
+          <div className="inline-flex max-w-full rounded-[1.5rem] border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-700">
+            <p>Returned on {returnedDate ?? "Not available"}</p>
+          </div>
+        ) : (
+          <div className="inline-flex max-w-full rounded-[1.5rem] border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-600">
+            <p>
+              Due date {dueDate}{" "}
+              <span className="font-semibold">({countdown})</span>
+            </p>
+          </div>
+        )}
         {!submitted ? (
           <button
             className="inline-flex items-center justify-center rounded-full bg-emerald-600 px-4 py-3 text-sm font-medium text-white transition hover:bg-emerald-700"
@@ -128,13 +141,36 @@ export function TrialActions({
                 Confirm that you&apos;re ready to return the pair and we&apos;ll
                 mark this trial for inspection.
               </p>
-              <p>
-                {returnPhotosCount > 0
-                  ? `${returnPhotosCount} return photo${
-                      returnPhotosCount === 1 ? "" : "s"
-                    } uploaded.`
-                  : "No return photos uploaded yet. You can still confirm now and add them after."}
-              </p>
+              <div className="space-y-2">
+                <p
+                  className={`font-medium ${
+                    hasBeforePhotos ? "text-stone-700" : "text-red-600"
+                  }`}
+                >
+                  {hasBeforePhotos
+                    ? `${beforePhotosCount} before photo${
+                        beforePhotosCount === 1 ? "" : "s"
+                      } uploaded.`
+                    : "No before photos uploaded yet."}
+                </p>
+                <p
+                  className={`font-medium ${
+                    hasReturnPhotos ? "text-stone-700" : "text-red-600"
+                  }`}
+                >
+                  {hasReturnPhotos
+                    ? `${returnPhotosCount} return photo${
+                        returnPhotosCount === 1 ? "" : "s"
+                      } uploaded.`
+                    : "No return photos uploaded yet."}
+                </p>
+              </div>
+              {!canConfirmReturn ? (
+                <div className="rounded-[1.25rem] border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium leading-6 text-red-600">
+                  Upload both before and return photos before confirming the
+                  return.
+                </div>
+              ) : null}
             </div>
 
             <label className="mt-5 block">
@@ -159,7 +195,7 @@ export function TrialActions({
               </button>
               <button
                 className="inline-flex items-center justify-center rounded-full bg-emerald-600 px-4 py-3 text-sm font-medium text-white transition hover:bg-emerald-700"
-                disabled={isSubmitting}
+                disabled={isSubmitting || !canConfirmReturn}
                 onClick={handleConfirm}
                 type="button"
               >

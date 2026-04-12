@@ -8,6 +8,7 @@ import {
   getOrderTypeTag,
   getResolvedTrialEndsAt,
   getTrialDueLabel,
+  syncOrderPaymentState,
   getUserOrders,
   type OrderRow,
 } from "@/lib/orders";
@@ -30,7 +31,9 @@ export default async function AccountPage() {
   if (user?.id) {
     try {
       const { data } = await getUserOrders(user.id);
-      purchases = data ?? [];
+      purchases = data
+        ? await Promise.all(data.map((order) => syncOrderPaymentState(order)))
+        : [];
     } catch {
       purchases = [];
     }
@@ -153,13 +156,6 @@ export default async function AccountPage() {
                         ? purchase.trial_fee_paid
                         : shoe.trialDailyFee * (purchase.trial_days ?? 5)
                       : purchase.trial_fee_paid;
-                  const upgradeAmount =
-                    isTrial &&
-                    shoe &&
-                    purchase.status === "trial_active"
-                      ? Math.max(shoe.keepPrice - trialAmountPaid, 0)
-                      : null;
-
                   return (
                     <div key={purchase.id} className="rounded-[1.5rem] bg-white/70 p-5">
                       <div className="flex items-start justify-between gap-6">
@@ -200,17 +196,6 @@ export default async function AccountPage() {
                             </p>
                           </div>
                         )}
-
-                        {upgradeAmount !== null ? (
-                          <Link
-                            href={`/checkout?shoe=${purchase.shoe_slug}&mode=upgrade&size=${encodeURIComponent(
-                              purchase.size,
-                            )}&trialSession=${purchase.id}`}
-                            className="mt-4 inline-flex rounded-full bg-stone-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-stone-700"
-                          >
-                            Buy now for ${upgradeAmount}
-                          </Link>
-                        ) : null}
                       </div>
                       <div className="min-w-[120px] text-right">
                         <div className="flex flex-col items-end gap-2">

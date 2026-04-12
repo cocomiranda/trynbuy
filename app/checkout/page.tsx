@@ -71,6 +71,11 @@ export default async function CheckoutPage({
   const upgradeAmount = Math.max(shoe.keepPrice - trialPaid, 0);
   const checkoutMode = isUpgrade ? "upgrade" : isBuyNow ? "buy" : "trial";
   const effectiveSize = isUpgrade ? (selectedTrial?.size ?? selectedSize) : selectedSize;
+  const trialRules = shoe.rules.filter(
+    (rule) =>
+      rule !== "The pair must be cleaned and packed for return pickup." &&
+      rule !== "Mileage and return intent are confirmed in-app before pickup.",
+  );
 
   return (
     <main className="min-h-screen bg-[#f4efe6] px-4 py-5 pb-28 text-stone-900 sm:px-6 sm:py-8 lg:px-10 lg:pb-8">
@@ -105,7 +110,7 @@ export default async function CheckoutPage({
               {isUpgrade
                 ? `Keep your ${shoe.name}`
                 : isBuyNow
-                ? `Buy your ${shoe.name} today`
+                ? "Complete your purchase"
                 : `Reserve your ${shoe.name} trial`}
             </h1>
             <p className="mt-4 max-w-2xl text-sm leading-7 text-stone-600 sm:text-base sm:leading-8">
@@ -153,23 +158,42 @@ export default async function CheckoutPage({
               </label>
               <label className="space-y-2">
                 <span className="text-sm font-medium text-stone-700">
-                  {isBuyNow || isUpgrade ? "Delivery date" : "Start date"}
+                  Address line 1
                 </span>
                 <input
                   className="w-full rounded-2xl border border-stone-200 bg-stone-50 px-4 py-3 outline-none transition focus:border-stone-400"
-                  defaultValue="2026-04-12"
-                  name="deliveryDate"
-                  type="date"
+                  defaultValue="221B Baker Street"
+                  name="addressLine1"
                 />
               </label>
               <label className="space-y-2">
                 <span className="text-sm font-medium text-stone-700">
-                  Delivery city
+                  Address line 2
+                </span>
+                <input
+                  className="w-full rounded-2xl border border-stone-200 bg-stone-50 px-4 py-3 outline-none transition focus:border-stone-400"
+                  defaultValue=""
+                  name="addressLine2"
+                />
+              </label>
+              <label className="space-y-2">
+                <span className="text-sm font-medium text-stone-700">
+                  City
                 </span>
                 <input
                   className="w-full rounded-2xl border border-stone-200 bg-stone-50 px-4 py-3 outline-none transition focus:border-stone-400"
                   defaultValue="London"
                   name="city"
+                />
+              </label>
+              <label className="space-y-2">
+                <span className="text-sm font-medium text-stone-700">
+                  Postcode
+                </span>
+                <input
+                  className="w-full rounded-2xl border border-stone-200 bg-stone-50 px-4 py-3 outline-none transition focus:border-stone-400"
+                  defaultValue="NW1 6XE"
+                  name="postcode"
                 />
               </label>
               {!isBuyNow && !isUpgrade ? (
@@ -302,8 +326,8 @@ export default async function CheckoutPage({
                   </strong>
                 </div>
               ) : null}
-              {!isUpgrade
-                ? shoe.rules.slice(1, 3).map((rule) => (
+              {!isUpgrade && !isBuyNow
+                ? trialRules.map((rule) => (
                 <div
                   key={rule}
                   className="rounded-[1.25rem] border border-stone-900/10 bg-white/60 px-4 py-3 text-sm leading-7 text-stone-700"

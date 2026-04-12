@@ -87,7 +87,7 @@ const steps = [
   {
     title: "1. Choose & Receive",
     description:
-      "Pick your shoes, choose your trial period, and get them delivered. A temporary deposit is held on your card (not charged) during the trial.",
+      "Pick your shoes, choose your trial period, and get them delivered.",
     icon: BoxIcon,
   },
   {

@@ -34,8 +34,10 @@ export async function POST(request: Request) {
   const shoeSlug = String(formData.get("shoe") ?? "");
   const size = String(formData.get("size") ?? "");
   const email = user.email;
-  const deliveryDate = String(formData.get("deliveryDate") ?? "");
+  const addressLine1 = String(formData.get("addressLine1") ?? "");
+  const addressLine2 = String(formData.get("addressLine2") ?? "");
   const city = String(formData.get("city") ?? "");
+  const postcode = String(formData.get("postcode") ?? "");
   const mode = String(formData.get("mode") ?? "");
   const days = Number(formData.get("days") ?? 5);
   const trialSessionId = String(formData.get("trialSession") ?? "");
@@ -98,8 +100,10 @@ export async function POST(request: Request) {
       buyPrice: shoe.keepPrice,
       guaranteeHoldAmount: shoe.deposit,
       metadata: {
+        addressLine1,
+        addressLine2,
         city,
-        deliveryDate,
+        postcode,
         source: "stripe_checkout",
       },
       mode: isBuyNow ? "buy_now" : "trial",
@@ -124,8 +128,10 @@ export async function POST(request: Request) {
       orderId,
       payload: {
         city,
-        deliveryDate,
         mode: isBuyNow ? "buy_now" : "trial",
+        postcode,
+        addressLine1,
+        addressLine2,
       },
       type: "order_created",
       userId: user.id,
@@ -186,9 +192,11 @@ export async function POST(request: Request) {
     metadata: {
       city,
       days: String(selectedDays),
-      deliveryDate,
       mode: isUpgrade ? "trial_upgrade" : isBuyNow ? "buy_now" : "trial",
       orderId: orderId ?? trialSessionId,
+      postcode,
+      addressLine1,
+      addressLine2,
       shoe: shoe.slug,
       size,
       trialPaid: String(upgradeTrialAmount),

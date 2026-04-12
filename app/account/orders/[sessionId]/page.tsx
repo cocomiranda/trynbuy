@@ -11,6 +11,7 @@ import {
   getResolvedTrialEndsAt,
   getTrialDueLabel,
   getUserOrderById,
+  syncOrderPaymentState,
 } from "@/lib/orders";
 import { getShoeBySlug } from "@/lib/shoes";
 import { getSupabaseConfig } from "@/lib/supabase/config";
@@ -44,11 +45,13 @@ export default async function OrderDetailPage({
     redirect("/login");
   }
 
-  const { data: order } = await getUserOrderById(sessionId, user.id);
+  const { data: fetchedOrder } = await getUserOrderById(sessionId, user.id);
 
-  if (!order) {
+  if (!fetchedOrder) {
     notFound();
   }
+
+  const order = await syncOrderPaymentState(fetchedOrder);
 
   const typeTag = getOrderTypeTag(order);
   const stateTag = getOrderStateTag(order);
@@ -136,10 +139,19 @@ export default async function OrderDetailPage({
           {isTrial ? (
             <>
               <TrialActions
+                beforePhotosCount={beforePhotos.length}
                 dueDate={formatOrderDate(resolvedTrialEndsAt)}
                 dueLabel={dueLabel}
                 initialReturnRequested={Boolean(
                   returnRequest || order.status === "trial_pending_inspection",
+                )}
+                returnedDate={formatOrderDate(
+                  order.return_requested_at ??
+                    returnRequest?.requestedAt ??
+                    (order.status === "trial_pending_inspection" ||
+                    order.status === "trial_return_completed"
+                      ? order.updated_at
+                      : null),
                 )}
                 returnPhotosCount={returnPhotos.length}
                 sessionId={sessionId}

@@ -149,7 +149,7 @@ export function TrialPhotoUploader({
   function renderGallery(stage: TrialPhotoStage, photos: TrialPhotoItem[]) {
     if (photos.length === 0) {
       return (
-        <p className="mt-4 text-sm text-stone-500">
+        <p className="mt-4 rounded-xl bg-stone-100 px-3 py-2 text-sm font-medium text-stone-700">
           No {stage} photos uploaded yet.
         </p>
       );
@@ -237,7 +237,7 @@ export function TrialPhotoUploader({
                       JPEG, PNG, or WEBP, up to 5MB each
                     </p>
                     {selectedFiles[stage].length > 0 ? (
-                      <p className="mt-2 text-sm font-semibold text-stone-700">
+                      <p className="mt-2 inline-flex rounded-full bg-[#edf4ff] px-3 py-1 text-sm font-semibold text-[#1769e8]">
                         {selectedFiles[stage].length} file
                         {selectedFiles[stage].length === 1 ? "" : "s"} selected
                       </p>
