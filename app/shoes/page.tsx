@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { useState } from "react";
 import { SiteFooter } from "@/app/components/site-footer";
@@ -45,7 +46,15 @@ export default function ShoesPage() {
                 </div>
               ) : null}
 
-              <div className={`min-h-60 bg-gradient-to-br ${shoe.gradient} p-6 text-white`}>
+              <div className="relative min-h-60 overflow-hidden bg-stone-100">
+                <Image
+                  alt={`${shoe.brand} ${shoe.name}`}
+                  className="h-64 w-full object-cover"
+                  height={900}
+                  src={shoe.imageSrc}
+                  width={1200}
+                />
+                <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-stone-950/85 via-stone-950/35 to-transparent p-6 text-white">
                 <div className="flex items-start justify-between gap-3">
                   <div>
                     <p className="text-xs uppercase tracking-[0.3em] text-white/80">
@@ -63,6 +72,7 @@ export default function ShoesPage() {
                   <span className="rounded-full bg-black/15 px-3 py-1 text-xs font-medium text-white/90">
                     ~{shoe.trialCount * 30} km used
                   </span>
+                </div>
                 </div>
               </div>
 

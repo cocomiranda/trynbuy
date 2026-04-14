@@ -5,6 +5,15 @@ export const metadata: Metadata = {
   title: "Try ’n Buy | Try Before You Buy Running Shoes",
   description:
     "A Next.js MVP for trial-based running shoe rentals with checkout, deposits, and admin operations.",
+  icons: {
+    icon: "/icon.png",
+    apple: "/apple-icon.png",
+  },
+  appleWebApp: {
+    capable: true,
+    title: "Try ’n Buy",
+    statusBarStyle: "default",
+  },
 };
 
 export default function RootLayout({

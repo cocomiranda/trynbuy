@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { SiteFooter } from "@/app/components/site-footer";
@@ -32,37 +33,44 @@ export default async function ShoePage({ params }: ShoePageProps) {
         </Link>
 
         <section className="grid gap-6 lg:grid-cols-[1fr_0.9fr]">
-          <article
-            className={`overflow-hidden rounded-[2rem] bg-gradient-to-br ${shoe.gradient} p-5 sm:rounded-[2.5rem] sm:p-8`}
-          >
+          <article className="overflow-hidden rounded-[2rem] bg-white text-stone-950 sm:rounded-[2.5rem]">
+            <div className={`bg-gradient-to-br ${shoe.gradient} p-5 sm:p-8`}>
             <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
               <div>
-                <p className="text-xs uppercase tracking-[0.3em] text-white/70">
+                <p className="text-xs uppercase tracking-[0.3em] text-stone-700/70">
                   {shoe.brand}
                 </p>
-                <h1 className="mt-3 font-[family-name:var(--font-heading)] text-4xl tracking-tight sm:text-5xl">
+                <h1 className="mt-3 font-[family-name:var(--font-heading)] text-4xl tracking-tight text-stone-950 sm:text-5xl">
                   {shoe.name}
                 </h1>
               </div>
-              <span className="w-fit rounded-full bg-white/15 px-4 py-2 text-sm">
+              <span className="w-fit rounded-full bg-white/60 px-4 py-2 text-sm text-stone-900">
                 {shoe.cushion}
               </span>
             </div>
-            <p className="mt-6 max-w-xl text-base leading-7 text-white/85 sm:mt-8 sm:text-lg sm:leading-8">
+            <p className="mt-6 max-w-xl text-base leading-7 text-stone-700 sm:mt-8 sm:text-lg sm:leading-8">
               {shoe.description}
             </p>
-            <div className="mt-12 grid gap-4 sm:grid-cols-3">
-              <div className="rounded-[1.5rem] bg-white/10 p-4">
-                <p className="text-sm text-white/70">Ideal runner</p>
-                <p className="mt-2 font-semibold">{shoe.runnerType}</p>
+            </div>
+            <Image
+              alt={`${shoe.brand} ${shoe.name}`}
+              className="h-[300px] w-full object-cover sm:h-[380px]"
+              height={900}
+              src={shoe.imageSrc}
+              width={1200}
+            />
+            <div className="grid gap-4 p-5 sm:grid-cols-3 sm:p-8">
+              <div className="rounded-[1.5rem] bg-stone-100 p-4">
+                <p className="text-sm text-stone-500">Ideal runner</p>
+                <p className="mt-2 font-semibold text-stone-950">{shoe.runnerType}</p>
               </div>
-              <div className="rounded-[1.5rem] bg-white/10 p-4">
-                <p className="text-sm text-white/70">Allowed surfaces</p>
-                <p className="mt-2 font-semibold">{shoe.allowedSurfaces}</p>
+              <div className="rounded-[1.5rem] bg-stone-100 p-4">
+                <p className="text-sm text-stone-500">Allowed surfaces</p>
+                <p className="mt-2 font-semibold text-stone-950">{shoe.allowedSurfaces}</p>
               </div>
-              <div className="rounded-[1.5rem] bg-white/10 p-4">
-                <p className="text-sm text-white/70">Available sizes</p>
-                <p className="mt-2 font-semibold leading-7">
+              <div className="rounded-[1.5rem] bg-stone-100 p-4">
+                <p className="text-sm text-stone-500">Available sizes</p>
+                <p className="mt-2 font-semibold leading-7 text-stone-950">
                   {shoe.availableSizes.join(", ")}
                 </p>
               </div>

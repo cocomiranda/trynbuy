@@ -13,6 +13,7 @@ import {
   type OrderRow,
 } from "@/lib/orders";
 import { getShoeBySlug } from "@/lib/shoes";
+import { getUserProfile } from "@/lib/profiles";
 import { getSupabaseConfig } from "@/lib/supabase/config";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 
@@ -27,14 +28,20 @@ export default async function AccountPage() {
     : null;
 
   let purchases: OrderRow[] = [];
+  let profileName: string | null = null;
 
   if (user?.id) {
     try {
-      const { data } = await getUserOrders(user.id);
-      purchases = data
-        ? await Promise.all(data.map((order) => syncOrderPaymentState(order)))
+      const [{ data: profile }, { data: orders }] = await Promise.all([
+        getUserProfile(user.id),
+        getUserOrders(user.id),
+      ]);
+      profileName = profile?.full_name?.trim() || null;
+      purchases = orders
+        ? await Promise.all(orders.map((order) => syncOrderPaymentState(order)))
         : [];
     } catch {
+      profileName = null;
       purchases = [];
     }
   }
@@ -81,9 +88,12 @@ export default async function AccountPage() {
                       Name
                     </p>
                     <p className="mt-2 text-lg font-medium text-stone-950">
-                      {typeof user.user_metadata?.full_name === "string"
-                        ? user.user_metadata.full_name
-                        : "Not provided"}
+                      {profileName ||
+                        (typeof user.user_metadata?.full_name === "string"
+                          ? user.user_metadata.full_name
+                          : user.email
+                            ? user.email.split("@")[0]
+                            : "Not provided")}
                     </p>
                   </div>
                   <div className="rounded-[1.25rem] bg-white p-4">
