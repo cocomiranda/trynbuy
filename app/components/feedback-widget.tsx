@@ -4,6 +4,60 @@ import { useState } from "react";
 
 export function FeedbackWidget() {
   const [isOpen, setIsOpen] = useState(false);
+  const [message, setMessage] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [statusMessage, setStatusMessage] = useState<string | null>(null);
+  const [statusTone, setStatusTone] = useState<"error" | "success" | null>(null);
+
+  async function handleSubmit() {
+    const trimmedMessage = message.trim();
+
+    if (!trimmedMessage) {
+      setStatusTone("error");
+      setStatusMessage("Add a quick note first.");
+      return;
+    }
+
+    setIsSubmitting(true);
+    setStatusTone(null);
+    setStatusMessage(null);
+
+    try {
+      const response = await fetch("/api/feedback", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          message: trimmedMessage,
+          page: window.location.pathname,
+        }),
+      });
+
+      let payload: { error?: string } = {};
+
+      try {
+        payload = (await response.json()) as { error?: string };
+      } catch {
+        payload = {};
+      }
+
+      if (!response.ok) {
+        throw new Error(payload.error ?? "Feedback could not be sent.");
+      }
+
+      setMessage("");
+      setStatusTone("success");
+      setStatusMessage("Thanks. Your feedback was sent.");
+    } catch (error) {
+      setStatusTone("error");
+      setStatusMessage(
+        error instanceof Error ? error.message : "Feedback could not be sent.",
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
 
   return (
     <div className="pointer-events-none fixed inset-x-4 bottom-4 z-50 flex justify-end sm:inset-x-6 lg:inset-x-10">
@@ -30,18 +84,32 @@ export function FeedbackWidget() {
             </div>
 
             <textarea
+              value={message}
+              onChange={(event) => setMessage(event.target.value)}
               className="mt-4 min-h-[104px] w-full rounded-2xl border border-stone-200 bg-stone-50 px-4 py-3 text-sm outline-none focus:border-stone-400"
               placeholder="Share a bug, idea, or anything that feels unclear."
             />
 
             <div className="mt-3 flex items-center justify-between gap-3">
-              <p className="text-xs text-stone-500">Submission coming soon</p>
+              <p
+                className={[
+                  "text-xs",
+                  statusTone === "error"
+                    ? "font-medium text-red-600"
+                    : statusTone === "success"
+                      ? "font-medium text-emerald-700"
+                      : "text-stone-500",
+                ].join(" ")}
+              >
+                {statusMessage ?? "Your note goes straight to the team."}
+              </p>
               <button
-                className="rounded-full bg-stone-900 px-4 py-2 text-sm font-medium text-white opacity-60"
-                disabled
+                className="rounded-full bg-stone-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-60"
+                disabled={isSubmitting}
+                onClick={handleSubmit}
                 type="button"
               >
-                Send
+                {isSubmitting ? "Sending..." : "Send"}
               </button>
             </div>
           </div>
