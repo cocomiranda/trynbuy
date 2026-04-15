@@ -5,6 +5,7 @@ import {
   finalizePaidOrderAdmin,
   getOrderByIdAdmin,
 } from "@/lib/orders";
+import { sendOrderTelegramNotification } from "@/lib/order-notifications";
 import { getStripeClient } from "@/lib/stripe";
 
 export const runtime = "nodejs";
@@ -73,7 +74,7 @@ export async function POST(request: Request) {
             trialStartDate.getTime() + selectedDays * 24 * 60 * 60 * 1000,
           ).toISOString();
 
-          await finalizePaidOrderAdmin({
+          const finalizedOrder = await finalizePaidOrderAdmin({
             deliveryStatus: "delivered",
             inspectionStatus: "not_started",
             orderId,
@@ -100,10 +101,21 @@ export async function POST(request: Request) {
             type: "trial_activated",
             userId: order.user_id,
           });
+
+          if (finalizedOrder.data) {
+            try {
+              await sendOrderTelegramNotification("trial_started", finalizedOrder.data, {
+                amount: (session.amount_total ?? 0) / 100,
+                email,
+              });
+            } catch {
+              // Order updates should not fail if Telegram is unavailable.
+            }
+          }
         }
 
         if (mode === "buy_now" && order.status === "checkout_pending") {
-          await finalizePaidOrderAdmin({
+          const finalizedOrder = await finalizePaidOrderAdmin({
             deliveryStatus: "pending",
             inspectionStatus: "not_required",
             orderId,
@@ -124,13 +136,24 @@ export async function POST(request: Request) {
             type: "purchase_paid",
             userId: order.user_id,
           });
+
+          if (finalizedOrder.data) {
+            try {
+              await sendOrderTelegramNotification("purchase_paid", finalizedOrder.data, {
+                amount: (session.amount_total ?? 0) / 100,
+                email,
+              });
+            } catch {
+              // Order updates should not fail if Telegram is unavailable.
+            }
+          }
         }
 
         if (
           mode === "trial_upgrade" &&
           (order.status === "trial_active" || order.status === "trial_pending_inspection")
         ) {
-          await finalizePaidOrderAdmin({
+          const finalizedOrder = await finalizePaidOrderAdmin({
             deliveryStatus: "delivered",
             inspectionStatus: "not_required",
             orderId,
@@ -154,6 +177,17 @@ export async function POST(request: Request) {
             type: "trial_upgraded",
             userId: order.user_id,
           });
+
+          if (finalizedOrder.data) {
+            try {
+              await sendOrderTelegramNotification("trial_upgraded", finalizedOrder.data, {
+                amount: (session.amount_total ?? 0) / 100,
+                email,
+              });
+            } catch {
+              // Order updates should not fail if Telegram is unavailable.
+            }
+          }
         }
       }
     }

@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { sendOrderTelegramNotification } from "@/lib/order-notifications";
 import { createOrderEvent, getUserOrderById, updateOrderStatus } from "@/lib/orders";
 import { saveTrialReturnRequest } from "@/lib/trial-photos";
 import { getSupabaseConfig } from "@/lib/supabase/config";
@@ -62,6 +63,15 @@ export async function POST(request: Request) {
     type: "return_requested",
     userId: user.id,
   });
+
+  try {
+    await sendOrderTelegramNotification("return_requested", order, {
+      email: user.email,
+      notes,
+    });
+  } catch {
+    // Return flow should still succeed if Telegram is unavailable.
+  }
 
   return NextResponse.json({ ok: true });
 }

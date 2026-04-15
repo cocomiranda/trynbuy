@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { sendOrderTelegramNotification } from "@/lib/order-notifications";
 import { createOrderEvent, createOrderPhoto, deleteOrderPhoto, getUserOrderById } from "@/lib/orders";
 import {
   buildTrialPhotoPath,
@@ -95,6 +96,19 @@ export async function POST(request: Request) {
         return path;
       }),
     );
+
+    try {
+      await sendOrderTelegramNotification(
+        stage === "before" ? "before_photo_uploaded" : "return_photo_uploaded",
+        order,
+        {
+          count: uploaded.length,
+          email: user.email,
+        },
+      );
+    } catch {
+      // Photo uploads should still succeed if Telegram is unavailable.
+    }
 
     return NextResponse.json({ ok: true, uploaded });
   } catch (error) {
