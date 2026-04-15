@@ -106,3 +106,23 @@ Create a webhook in Stripe pointing to:
 Listen to:
 
 - `checkout.session.completed`
+
+## 8. New user Telegram notification
+
+If you want Telegram notifications for new signups:
+
+1. Add these env vars to your app host:
+   - `TELEGRAM_BOT_TOKEN`
+   - `TELEGRAM_CHAT_ID`
+   - `NEW_USER_WEBHOOK_SECRET`
+2. Create a Supabase Database Webhook on:
+   - schema: `public`
+   - table: `profiles`
+   - event: `INSERT`
+3. Point it to:
+   - `/api/notifications/new-user`
+4. Add a custom header:
+   - `x-webhook-secret: <NEW_USER_WEBHOOK_SECRET>`
+
+The webhook payload will include the inserted `profiles` row, and the app will
+send a Telegram message containing the user's name, email, ID, and signup time.
