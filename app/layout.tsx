@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Analytics } from "@vercel/analytics/react";
 import { FeedbackWidget } from "@/app/components/feedback-widget";
 import "./globals.css";
 
@@ -27,6 +28,7 @@ export default function RootLayout({
       <body className="min-h-full flex flex-col">
         {children}
         <FeedbackWidget />
+        <Analytics />
       </body>
     </html>
   );
